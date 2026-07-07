@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>D-Ticket — File d'attente distribuée</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <span class="brand-mark">D</span>
+        <div>
+          <h1>D-Ticket</h1>
+          <p class="subtitle">Système distribué de gestion de file d'attente — réplication &amp; tolérance aux pannes</p>
+        </div>
+      </div>
+      <span id="global-status" class="badge badge-neutral">Connexion…</span>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- Tableau de bord -->
+    <section class="stats-grid">
+      <div class="stat-card">
+        <span class="stat-label">Dernier ticket</span>
+        <span class="stat-value" id="stat-last-ticket">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Tickets émis</span>
+        <span class="stat-value" id="stat-total-tickets">—</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-label">Nœuds actifs</span>
+        <span class="stat-value" id="stat-active-nodes">—</span>
+      </div>
+      <div class="stat-card stat-card-action">
+        <input type="text" id="client-name" placeholder="Nom du client (optionnel)" maxlength="40">
+        <button id="btn-take-ticket" class="btn btn-primary">Prendre un ticket</button>
+      </div>
+    </section>
+
+    <div id="notification" class="notification hidden"></div>
+
+    <div class="columns">
+      <!-- Colonne gauche : nœuds + état distribué -->
+      <div class="column">
+        <section class="panel">
+          <h2>Nœuds du cluster</h2>
+          <div id="nodes-list" class="nodes-list">
+            <p class="empty">Chargement des nœuds…</p>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>État distribué</h2>
+          <p class="panel-hint">Version de l'état répliqué sur chaque nœud.</p>
+          <table class="table" id="versions-table">
+            <thead>
+              <tr><th>Nœud</th><th>Version</th><th>Dernier ticket</th><th>Synchronisation</th></tr>
+            </thead>
+            <tbody id="versions-body">
+              <tr><td colspan="4" class="empty">—</td></tr>
+            </tbody>
+          </table>
+        </section>
+      </div>
+
+      <!-- Colonne droite : tickets + journal -->
+      <div class="column">
+        <section class="panel">
+          <h2>Tickets <span class="panel-source" id="tickets-source"></span></h2>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr><th>N°</th><th>Client</th><th>Créé par</th><th>Horodatage</th></tr>
+              </thead>
+              <tbody id="tickets-body">
+                <tr><td colspan="4" class="empty">Aucun ticket pour le moment.</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="panel">
+          <h2>Journal d'événements</h2>
+          <ul id="event-log" class="event-log">
+            <li class="empty">Aucun événement.</li>
+          </ul>
+        </section>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="footer">
+    Projet universitaire — Systèmes Distribués · Registry + 3 nœuds répliqués · Python / Flask
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
