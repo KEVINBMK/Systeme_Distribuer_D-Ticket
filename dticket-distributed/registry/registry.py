@@ -135,9 +135,17 @@ def list_nodes():
 
 
 def main():
+    global NODES_FILE
+
     parser = argparse.ArgumentParser(description="D-Ticket Registry")
     parser.add_argument("--port", type=int, default=5000, help="Port HTTP du registry")
+    parser.add_argument(
+        "--nodes-file",
+        default=NODES_FILE,
+        help="Chemin du fichier nodes.json (utile pour les tests)",
+    )
     args = parser.parse_args()
+    NODES_FILE = args.nodes_file
 
     # On repart d'un annuaire vide à chaque démarrage : les nœuds vivants
     # se ré-enregistrent d'eux-mêmes via leur heartbeat périodique.

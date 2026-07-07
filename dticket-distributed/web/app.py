@@ -16,6 +16,7 @@ Lancement :
 """
 
 import argparse
+import itertools
 import logging
 
 import requests
@@ -146,25 +147,50 @@ def api_tickets():
     )
 
 
+# Compteur pour la répartition round-robin des demandes de tickets.
+_round_robin_counter = itertools.count()
+
+
+def _ticket_candidates(nodes: list) -> list:
+    """
+    Ordonne les nœuds candidats pour la prochaine demande de ticket :
+      1. les nœuds actifs SYNCHRONISÉS (version maximale), en round-robin
+         pour répartir la charge équitablement entre eux ;
+      2. puis les nœuds actifs en retard, en dernier recours (failover),
+         car créer un ticket sur un nœud en retard risquerait un doublon.
+    """
+    active = [n for n in nodes if n["status"] == "active"]
+    if not active:
+        return []
+
+    max_version = max(n["version"] or 0 for n in active)
+    up_to_date = [n for n in active if (n["version"] or 0) == max_version]
+    lagging = sorted(
+        (n for n in active if (n["version"] or 0) < max_version),
+        key=lambda n: (n["version"] or 0),
+        reverse=True,
+    )
+
+    # Rotation : chaque demande commence par le nœud suivant de la liste.
+    offset = next(_round_robin_counter) % len(up_to_date)
+    return up_to_date[offset:] + up_to_date[:offset] + lagging
+
+
 @app.route("/api/ticket", methods=["POST"])
 def api_take_ticket():
     """
-    Prend un ticket : choisit un nœud actif et lui transmet la demande.
-    Si le nœud choisi échoue au dernier moment, on essaie les suivants
-    (failover automatique).
+    Prend un ticket : choisit un nœud actif (répartition round-robin entre
+    les nœuds synchronisés) et lui transmet la demande. Si le nœud choisi
+    échoue au dernier moment, on essaie les suivants (failover automatique).
     """
     payload = request.get_json(silent=True) or {}
     client = payload.get("client") or "Client anonyme"
 
-    nodes = _cluster_view()
-    active = [n for n in nodes if n["status"] == "active"]
-    # Les plus à jour d'abord.
-    active.sort(key=lambda n: (n["version"] or 0), reverse=True)
-
-    if not active:
+    candidates = _ticket_candidates(_cluster_view())
+    if not candidates:
         return jsonify({"error": "Aucun nœud actif : impossible de créer un ticket"}), 503
 
-    for node in active:
+    for node in candidates:
         try:
             response = requests.post(
                 f"{node['url']}/ticket",

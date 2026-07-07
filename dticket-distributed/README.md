@@ -153,8 +153,10 @@ Voir [`docs/GUIDE_DEMO.md`](docs/GUIDE_DEMO.md) pour le déroulé détaillé.
   un nœud n'accepte un état distant que si sa version est **strictement supérieure**.
 - **Exclusion mutuelle locale** : `threading.Lock` garantit qu'un même nœud ne
   délivre jamais deux fois le même numéro, même sous requêtes concurrentes.
-- **Failover** : le backend web sonde la santé des nœuds et route vers le nœud
-  actif le plus à jour ; si l'appel échoue, il essaie le nœud suivant.
+- **Répartition de charge + failover** : le backend web sonde la santé des
+  nœuds et répartit les demandes en **round-robin** entre les nœuds actifs
+  synchronisés (chaque ticket est servi par un nœud différent) ; si l'appel
+  échoue, il essaie le nœud suivant.
 - **Récupération après crash** : au (re)démarrage, un nœud interroge ses pairs,
   adopte l'état de version maximale et le persiste.
 

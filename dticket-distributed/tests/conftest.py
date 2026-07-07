@@ -86,8 +86,13 @@ def cluster(tmp_path_factory):
         return process
 
     try:
-        # 1. Registry
-        _spawn(["registry/registry.py", "--port", str(registry_port)])
+        # 1. Registry (annuaire dans un fichier temporaire pour ne pas
+        #    polluer registry/nodes.json du dépôt)
+        nodes_file = os.path.join(state_dir, "nodes.json")
+        _spawn(
+            ["registry/registry.py", "--port", str(registry_port),
+             "--nodes-file", nodes_file]
+        )
         _wait_until_healthy(registry_url, "registry")
 
         # 2. Nœuds
