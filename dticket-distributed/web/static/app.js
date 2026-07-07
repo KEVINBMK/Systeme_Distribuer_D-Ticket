@@ -33,7 +33,7 @@ function notify(message, type) {
 }
 
 // ---------------------------------------------------------------
-// Rafraîchissement du cluster (nœuds + état distribué)
+// Rafraîchissement du cluster (panneau latéral + état distribué)
 // ---------------------------------------------------------------
 
 async function refreshCluster() {
@@ -49,6 +49,9 @@ async function refreshCluster() {
 
   const activeCount = nodes.filter((n) => n.status === "active").length;
   $("stat-active-nodes").textContent = `${activeCount} / ${nodes.length}`;
+
+  const versions = nodes.map((n) => n.version).filter((v) => v !== null);
+  $("stat-version").textContent = versions.length ? Math.max(...versions) : "—";
 
   const globalStatus = $("global-status");
   if (nodes.length === 0) {
@@ -66,78 +69,92 @@ async function refreshCluster() {
   }
 
   renderNodeCards(nodes);
-  renderVersionsTable(nodes);
+  renderVersionBars(nodes);
   $("btn-take-ticket").disabled = activeCount === 0;
 }
 
 function renderNodeCards(nodes) {
   const list = $("nodes-list");
   if (nodes.length === 0) {
-    list.innerHTML = '<p class="empty">Aucun nœud enregistré auprès du registry.</p>';
+    list.innerHTML = '<p class="side-empty">Aucun nœud enregistré auprès du registry.</p>';
     return;
   }
 
   list.innerHTML = nodes
     .map((node) => {
       const isActive = node.status === "active";
-      const statusBadge = isActive
-        ? '<span class="badge badge-active">Actif</span>'
-        : '<span class="badge badge-inactive">Inactif</span>';
       const syncBadge =
         node.sync === "synchronized"
-          ? '<span class="badge badge-sync">Synchronisé</span>'
+          ? '<span class="badge badge-mini badge-active">Synchronisé</span>'
           : node.sync === "lagging"
-            ? '<span class="badge badge-lag">En retard</span>'
-            : "";
+            ? '<span class="badge badge-mini badge-lag">En retard</span>'
+            : '<span class="badge badge-mini badge-inactive">Hors ligne</span>';
       const actionButton = isActive
-        ? `<button class="btn btn-small btn-danger" onclick="failNode('${node.node_id}')">Simuler panne</button>`
-        : `<button class="btn btn-small btn-success" onclick="restartNode('${node.node_id}')">Redémarrer</button>`;
+        ? `<button class="btn btn-ghost danger" onclick="failNode('${node.node_id}')">Simuler panne</button>`
+        : `<button class="btn btn-ghost success" onclick="restartNode('${node.node_id}')">Redémarrer</button>`;
 
       return `
         <div class="node-card ${isActive ? "" : "node-down"}">
-          <div class="node-identity">
+          <div class="node-top">
+            <span class="status-dot ${isActive ? "on" : "off"}"></span>
             <span class="node-name">${escapeHtml(node.node_id)}</span>
-            <span class="node-url">${escapeHtml(node.url)}</span>
+            <span class="node-version">v${node.version ?? "?"}</span>
           </div>
-          <div class="node-actions">
-            ${statusBadge}
-            ${syncBadge}
+          <div class="node-bottom">
+            <span class="node-url">${escapeHtml(node.url.replace("http://", ""))}</span>
             ${actionButton}
+          </div>
+          <div class="node-bottom">
+            ${syncBadge}
           </div>
         </div>`;
     })
     .join("");
 }
 
-function renderVersionsTable(nodes) {
-  const body = $("versions-body");
+function renderVersionBars(nodes) {
+  const list = $("versions-list");
   if (nodes.length === 0) {
-    body.innerHTML = '<tr><td colspan="4" class="empty">—</td></tr>';
+    list.innerHTML = '<p class="empty">—</p>';
     return;
   }
 
-  body.innerHTML = nodes
+  const maxVersion = Math.max(1, ...nodes.map((n) => n.version ?? 0));
+
+  list.innerHTML = nodes
     .map((node) => {
-      const sync =
-        node.sync === "synchronized"
-          ? '<span class="badge badge-sync">Synchronisé</span>'
-          : node.sync === "lagging"
-            ? '<span class="badge badge-lag">En retard</span>'
-            : '<span class="badge badge-inactive">Hors ligne</span>';
+      const version = node.version ?? 0;
+      const percent = Math.round((version / maxVersion) * 100);
+      const fillClass =
+        node.status !== "active" ? "off" : node.sync === "lagging" ? "lag" : "";
+      const label =
+        node.status !== "active"
+          ? "hors ligne"
+          : `v${version} / v${maxVersion}`;
       return `
-        <tr>
-          <td><strong>${escapeHtml(node.node_id)}</strong></td>
-          <td>${node.version ?? "—"}</td>
-          <td>${node.last_ticket ?? "—"}</td>
-          <td>${sync}</td>
-        </tr>`;
+        <div class="version-row">
+          <div class="version-head">
+            <span class="vname">${escapeHtml(node.node_id)}</span>
+            <span class="vnum">${label}</span>
+          </div>
+          <div class="version-track">
+            <div class="version-fill ${fillClass}" style="width:${node.status === "active" ? percent : 4}%"></div>
+          </div>
+        </div>`;
     })
     .join("");
 }
 
 // ---------------------------------------------------------------
-// Rafraîchissement des tickets et du journal
+// Rafraîchissement des tickets, du ticket de guichet et du journal
 // ---------------------------------------------------------------
+
+function classifyEvent(message) {
+  if (message.includes("PANNE")) return "evt-panne";
+  if (message.includes("REDÉMARRAGE") || message.includes("Récupération réussie")) return "evt-retour";
+  if (message.includes("répliqué")) return "evt-replication";
+  return "";
+}
 
 async function refreshTickets() {
   let data;
@@ -149,9 +166,22 @@ async function refreshTickets() {
     return; // aucun nœud actif : on garde le dernier affichage connu
   }
 
-  $("stat-last-ticket").textContent = data.last_ticket > 0 ? `N° ${data.last_ticket}` : "—";
   $("stat-total-tickets").textContent = data.tickets.length;
-  $("tickets-source").textContent = `(lu depuis ${data.source})`;
+  $("tickets-source").textContent = `lu depuis ${data.source}`;
+
+  // Ticket de guichet : le dernier ticket émis.
+  const last = data.tickets[data.tickets.length - 1];
+  if (last) {
+    $("stub-number").textContent = String(last.ticket_number).padStart(3, "0");
+    $("stub-client").textContent = last.client;
+    $("stub-node").textContent = last.created_by;
+    $("stub-time").textContent = last.timestamp;
+  } else {
+    $("stub-number").textContent = "—";
+    $("stub-client").textContent = "En attente du premier ticket";
+    $("stub-node").textContent = "—";
+    $("stub-time").textContent = "—";
+  }
 
   const ticketsBody = $("tickets-body");
   if (data.tickets.length === 0) {
@@ -163,9 +193,9 @@ async function refreshTickets() {
       .map(
         (t) => `
         <tr>
-          <td class="ticket-number">N° ${t.ticket_number}</td>
+          <td class="ticket-number">${String(t.ticket_number).padStart(3, "0")}</td>
           <td>${escapeHtml(t.client)}</td>
-          <td>${escapeHtml(t.created_by)}</td>
+          <td><span class="node-chip">${escapeHtml(t.created_by)}</span></td>
           <td>${escapeHtml(t.timestamp)}</td>
         </tr>`
       )
@@ -180,7 +210,7 @@ async function refreshTickets() {
       .reverse()
       .map(
         (e) => `
-        <li>
+        <li class="${classifyEvent(e.message)}">
           <span class="event-time">${escapeHtml(e.timestamp)}</span>
           ${escapeHtml(e.message)}
         </li>`
