@@ -52,3 +52,29 @@ def test_ticket_via_web_backend(cluster):
     data = response.json()
     assert data["ticket"]["ticket_number"] >= 1
     assert data["served_by"] in ("NODE_1", "NODE_2", "NODE_3")
+
+
+def test_load_is_distributed_across_nodes(cluster):
+    """
+    Répartition de charge : des demandes successives via le backend web
+    sont servies par des nœuds DIFFÉRENTS (round-robin entre nœuds
+    synchronisés), sans jamais dupliquer un numéro.
+    """
+    served_by = []
+    numbers = []
+    for i in range(6):
+        response = requests.post(
+            f"{cluster.web_url}/api/ticket",
+            json={"client": f"Client rr {i}"},
+            timeout=5,
+        )
+        assert response.status_code == 201
+        data = response.json()
+        served_by.append(data["served_by"])
+        numbers.append(data["ticket"]["ticket_number"])
+
+    # Les trois nœuds ont participé, et aucun numéro n'est dupliqué.
+    assert set(served_by) == {"NODE_1", "NODE_2", "NODE_3"}, (
+        f"Répartition insuffisante : {served_by}"
+    )
+    assert len(numbers) == len(set(numbers))

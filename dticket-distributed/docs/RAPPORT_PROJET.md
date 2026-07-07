@@ -121,11 +121,13 @@ La panne d'un nœud est simulée par `POST /shutdown-simulated` : le nœud répo
 alors `503` à toute requête métier et **cesse son heartbeat**, exactement comme
 un serveur éteint du point de vue du reste du système.
 
-Le failover est géré par le backend web :
+Le routage est géré par le backend web :
 
 1. il sonde `GET /health` sur chaque nœud connu du registry ;
-2. il choisit le nœud **actif le plus à jour** (version maximale) ;
-3. si l'appel échoue malgré tout, il essaie le nœud actif suivant.
+2. il répartit les demandes en **round-robin** entre les nœuds actifs
+   **synchronisés** (version maximale), pour que tous les nœuds participent ;
+3. si l'appel échoue malgré tout, il essaie le nœud suivant, les nœuds en
+   retard n'étant utilisés qu'en dernier recours (risque de doublon).
 
 Résultat : tant qu'**au moins un nœud** est vivant, les clients continuent de
 recevoir des tickets, avec des numéros toujours croissants et uniques.
