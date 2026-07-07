@@ -8,98 +8,136 @@
 </head>
 <body>
 
-  <header class="topbar">
-    <div class="topbar-inner">
-      <div class="brand">
-        <span class="brand-mark">D</span>
-        <div>
-          <h1>D-Ticket</h1>
-          <p class="subtitle">Système distribué de gestion de file d'attente — réplication &amp; tolérance aux pannes</p>
-        </div>
+<div class="layout">
+
+  <!-- ================= Panneau latéral ================= -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <span>D</span>
       </div>
+      <div class="brand-text">
+        <h1>D-Ticket</h1>
+        <p>Systèmes Distribués</p>
+      </div>
+    </div>
+
+    <div class="cluster-health">
+      <span class="side-label">État du cluster</span>
       <span id="global-status" class="badge badge-neutral">Connexion…</span>
     </div>
-  </header>
 
-  <main class="container">
+    <nav class="side-section">
+      <span class="side-label">Nœuds du cluster</span>
+      <div id="nodes-list" class="nodes-list">
+        <p class="side-empty">Recherche des nœuds…</p>
+      </div>
+    </nav>
 
-    <!-- Tableau de bord -->
-    <section class="stats-grid">
-      <div class="stat-card">
-        <span class="stat-label">Dernier ticket</span>
-        <span class="stat-value" id="stat-last-ticket">—</span>
+    <div class="side-footer">
+      <p>Registry · 3 nœuds répliqués</p>
+      <p>Python / Flask / JSON</p>
+    </div>
+  </aside>
+
+  <!-- ================= Contenu principal ================= -->
+  <main class="main">
+
+    <header class="main-header">
+      <div>
+        <h2>Tableau de bord</h2>
+        <p class="main-subtitle">Réplication d'état, tolérance aux pannes et récupération en temps réel</p>
       </div>
-      <div class="stat-card">
-        <span class="stat-label">Tickets émis</span>
-        <span class="stat-value" id="stat-total-tickets">—</span>
-      </div>
-      <div class="stat-card">
-        <span class="stat-label">Nœuds actifs</span>
-        <span class="stat-value" id="stat-active-nodes">—</span>
-      </div>
-      <div class="stat-card stat-card-action">
+      <div class="take-ticket">
         <input type="text" id="client-name" placeholder="Nom du client (optionnel)" maxlength="40">
         <button id="btn-take-ticket" class="btn btn-primary">Prendre un ticket</button>
       </div>
-    </section>
+    </header>
 
     <div id="notification" class="notification hidden"></div>
 
-    <div class="columns">
-      <!-- Colonne gauche : nœuds + état distribué -->
-      <div class="column">
-        <section class="panel">
-          <h2>Nœuds du cluster</h2>
-          <div id="nodes-list" class="nodes-list">
-            <p class="empty">Chargement des nœuds…</p>
-          </div>
-        </section>
+    <!-- Rangée : ticket de guichet + statistiques -->
+    <section class="hero-row">
 
-        <section class="panel">
-          <h2>État distribué</h2>
-          <p class="panel-hint">Version de l'état répliqué sur chaque nœud.</p>
-          <table class="table" id="versions-table">
+      <div class="ticket-stub" id="ticket-stub">
+        <div class="stub-left">
+          <span class="stub-brand">D-TICKET</span>
+          <span class="stub-caption">Votre numéro de passage</span>
+          <span class="stub-number" id="stub-number">—</span>
+          <span class="stub-client" id="stub-client">En attente du premier ticket</span>
+        </div>
+        <div class="stub-tear"></div>
+        <div class="stub-right">
+          <span class="stub-meta-label">Émis par</span>
+          <span class="stub-meta-value" id="stub-node">—</span>
+          <span class="stub-meta-label">Horodatage</span>
+          <span class="stub-meta-value" id="stub-time">—</span>
+        </div>
+      </div>
+
+      <div class="stats-column">
+        <div class="stat-tile">
+          <span class="stat-value" id="stat-total-tickets">—</span>
+          <span class="stat-label">Tickets émis</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="stat-active-nodes">—</span>
+          <span class="stat-label">Nœuds actifs</span>
+        </div>
+        <div class="stat-tile">
+          <span class="stat-value" id="stat-version">—</span>
+          <span class="stat-label">Version de l'état</span>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- Rangée : registre des tickets + état distribué -->
+    <section class="grid-row">
+
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Registre des tickets</h3>
+          <span class="panel-source" id="tickets-source"></span>
+        </div>
+        <div class="table-wrap">
+          <table class="table">
             <thead>
-              <tr><th>Nœud</th><th>Version</th><th>Dernier ticket</th><th>Synchronisation</th></tr>
+              <tr><th>N°</th><th>Client</th><th>Émis par</th><th>Horodatage</th></tr>
             </thead>
-            <tbody id="versions-body">
-              <tr><td colspan="4" class="empty">—</td></tr>
+            <tbody id="tickets-body">
+              <tr><td colspan="4" class="empty">Aucun ticket pour le moment.</td></tr>
             </tbody>
           </table>
-        </section>
+        </div>
       </div>
 
-      <!-- Colonne droite : tickets + journal -->
-      <div class="column">
-        <section class="panel">
-          <h2>Tickets <span class="panel-source" id="tickets-source"></span></h2>
-          <div class="table-wrap">
-            <table class="table">
-              <thead>
-                <tr><th>N°</th><th>Client</th><th>Créé par</th><th>Horodatage</th></tr>
-              </thead>
-              <tbody id="tickets-body">
-                <tr><td colspan="4" class="empty">Aucun ticket pour le moment.</td></tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="panel">
-          <h2>Journal d'événements</h2>
-          <ul id="event-log" class="event-log">
-            <li class="empty">Aucun événement.</li>
-          </ul>
-        </section>
+      <div class="panel">
+        <div class="panel-head">
+          <h3>État distribué</h3>
+          <span class="panel-source">version répliquée par nœud</span>
+        </div>
+        <div id="versions-list" class="versions-list">
+          <p class="empty">—</p>
+        </div>
       </div>
-    </div>
+
+    </section>
+
+    <!-- Rangée : journal -->
+    <section class="panel">
+      <div class="panel-head">
+        <h3>Journal d'événements</h3>
+        <span class="panel-source">réplications, pannes et récupérations</span>
+      </div>
+      <ol id="event-log" class="timeline">
+        <li class="empty">Aucun événement.</li>
+      </ol>
+    </section>
 
   </main>
+</div>
 
-  <footer class="footer">
-    Projet universitaire — Systèmes Distribués · Registry + 3 nœuds répliqués · Python / Flask
-  </footer>
-
-  <script src="/static/app.js"></script>
+<script src="/static/app.js"></script>
 </body>
 </html>
